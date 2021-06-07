@@ -1,2 +1,3 @@
-# fsl_osr_dataset_baseline
-Source code for baseline obtenience
+# Baseline codes for baseline replication
+
+Baseline codes for FSL/OSR audio dataset
