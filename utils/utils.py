@@ -3,6 +3,7 @@ import random
 
 from pathlib import Path
 import pandas as pd
+import numpy as np
 
 
 def prepare_paths():
@@ -17,6 +18,34 @@ def prepare_paths():
     return data_path, metadata_path, pattern_path, unwanted_path
 
 
+def generate_features_paths(root_path: Path = Path.cwd()) -> Tuple[Path, Path, Path]:
+    features_path = root_path / 'data/features'
+    l3_path = features_path / 'l3_features'
+    yamnet_path = features_path / 'yamnet_features'
+
+    if not features_path.is_dir():
+        features_path.mkdir()
+    if not l3_path.is_dir():
+        l3_path.mkdir()
+        generate_full_trios_path(l3_path)
+
+    if not yamnet_path.is_dir():
+        yamnet_path.mkdir()
+
+    return features_path, l3_path, yamnet_path
+
+
+def generate_full_trios_path(path: Path) -> None:
+    path_full = path / 'full'
+    path_trios = path / 'trios'
+    path_full.mkdir()
+    path_trios.mkdir()
+
+
+def recover_csv_meta_path(root_path: Path = Path.cwd()) -> Path:
+    return root_path / 'data/meta/csv'
+
+
 def folders_in_path(path: Path) -> list:
     return [folder for folder in sorted(path.iterdir()) if folder.is_dir()]
 
@@ -24,7 +53,7 @@ def folders_in_path(path: Path) -> list:
 def prepare_extraction_options(pattern_path: Path) -> Tuple[list, dict, list, int, int]:
     # Labels
     pattern_folders = pattern_path.glob('**/')
-    labels = [f"pattern_{str(i + 1).zfill(2)}" for i, _ in enumerate(pattern_folders)]
+    labels = [f"pattern_{str(i).zfill(2)}" for i, _ in enumerate(pattern_folders)]
     labels = ["unknown"] + labels
 
     # Few shot options
@@ -144,3 +173,24 @@ def create_configuration_csvs(pattern_files: list,
             metadata = {'filename': files, 'target': labels, 'fold': train_folds}
             metadata_df = pd.DataFrame(metadata, columns=['filename', 'target', 'fold'])
             metadata_df.to_csv(path_or_buf=csv_path, index=False, header=True)
+
+
+def convert_to_one_hot(labels: list) -> np.ndarray:
+    label_ids = np.array(convert_labels_to_ids(labels))
+    number_of_labels = len(np.unique(label_ids))
+
+    # Convert to one_
+    one_hot_array = np.zeros((label_ids.shape[0], number_of_labels))
+    one_hot_array[np.arange(label_ids.size), label_ids] = 1
+
+    return one_hot_array[:, 1:]
+
+
+def convert_labels_to_ids(labels: list) -> list:
+    label_to_id_converter = {f"pattern_{str(i + 1).zfill(2)}": i + 1 for i in range(24)}
+    label_to_id_converter['unknown'] = 0
+
+    # Convert labels to ids
+    label_ids = [label_to_id_converter[label] for label in labels]
+
+    return label_ids
