@@ -44,7 +44,7 @@ def generate_embeddings():
 
     # Analysis params
     modes = ['full', 'trios']
-    extractors = ['l3', 'yamnet']
+    extractors = ['yamnet']
 
     for mode in modes:
         if mode == 'full':
@@ -52,6 +52,11 @@ def generate_embeddings():
                 if extractor == 'l3':
                     model = transfer_learning.AudioL3()
                     storing_path = l3_path / 'full'
+                    embedding_size = 512
+                if extractor == 'yamnet':
+                    model = transfer_learning.YamNet()
+                    storing_path = yamnet_path / 'full'
+                    embedding_size = 1024
                 for csv_file in sorted(csv_path.iterdir()):
                     print(f"Extracting {csv_file.stem}")
                     audios_df = pd.read_csv(csv_file)
@@ -61,7 +66,7 @@ def generate_embeddings():
                         fold_audios_df = audios_df[audios_df['fold'] == i+1]
                         fold_audios_df = fold_audios_df.reset_index(drop=True)
 
-                        embeddings = np.empty([fold_audios_df.shape[0], 512])
+                        embeddings = np.empty([fold_audios_df.shape[0], embedding_size])
                         for j, row in fold_audios_df.iterrows():
                             audio_emb = model.get_embedding(row['filename'])
                             embeddings[j, :] = audio_emb
@@ -71,7 +76,7 @@ def generate_embeddings():
 
                         storing_file = storing_path / f"{csv_file.stem}"
                         if not storing_file.is_dir():
-                            storing_file.mkdir()
+                            storing_file.mkdir(parents=True)
                         storing_file = storing_file / f"training_fold_{i+1}.pkl"
                         pickle.dump(fold_features, open(storing_file, 'wb'))
 

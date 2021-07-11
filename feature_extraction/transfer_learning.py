@@ -36,4 +36,17 @@ class AudioL3:
         return emb
 
 
+class YamNet:
 
+    def __init__(self) -> None:
+        self.model = hub.load('https://tfhub.dev/google/yamnet/1')
+
+    def get_embedding(self, audio: Path, sr: int = 16000) -> np.ndarray:
+        # Read audio
+        y, _ = librosa.load(audio, sr=sr)
+
+        # Calculate embedding
+        _, emb, _ = self.model(y)
+        emb = np.mean(emb, axis=0)
+
+        return emb
