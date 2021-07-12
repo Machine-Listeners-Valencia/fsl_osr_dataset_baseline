@@ -63,3 +63,23 @@ class BaselineModel:
                        epochs=epochs,
                        batch_size=batch_size,
                        callbacks=[self.lr_plateau, self.early_stopping])
+
+    def openset_predict(self, X_test: np.ndarray) -> np.ndarray:
+        predictions = self.model.predict(X_test)
+        openset_predictions = self.predict_on_threshold(predictions)
+
+        return openset_predictions
+
+    @staticmethod
+    def predict_on_threshold(predictions: np.ndarray, threshold: float = 0.5) -> np.ndarray:
+        predict_openset = np.zeros((predictions.shape[0], predictions.shape[1]))
+
+        for j in range(predictions.shape[0]):
+            max_value = np.amax(predictions[j, :])
+            idx_max_value = np.where(predictions[j, :] == max_value)
+            idx_max_value = idx_max_value[0]
+
+            if max_value >= threshold:
+                predict_openset[j, idx_max_value] = 1
+
+        return predict_openset
