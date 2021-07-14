@@ -7,7 +7,9 @@ import numpy as np
 from tqdm import tqdm
 
 from utils import utils
-from feature_extraction import  transfer_learning
+from feature_extraction import transfer_learning
+from train import train
+
 
 def prepare_splits():
     cwd_path = Path.cwd()
@@ -83,6 +85,9 @@ def generate_embeddings():
 
 if __name__ == "__main__":
     configuration = yaml.safe_load(open('configuration.yaml'))
-    feature_extraction_mode = configuration['feature_extraction']
-    prepare_splits()
-    generate_embeddings()
+    feature_extractors = configuration['feature_extractors']
+    training_modes = configuration['training_modes']
+    train_parameters = configuration['train_parameters']
+    # prepare_splits()
+    # generate_embeddings()
+    train.do_training(training_modes, feature_extractors, train_parameters)
