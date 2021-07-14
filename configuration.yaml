@@ -1,0 +1,9 @@
+training_modes:
+  - full
+
+feature_extractors:
+  - yamnet
+
+train_parameters:
+  epochs: 200
+  batch_size: 16
