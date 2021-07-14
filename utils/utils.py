@@ -1,9 +1,11 @@
-from typing import Tuple
+from typing import Tuple, Union
 import random
+import re
 
 from pathlib import Path
 import pandas as pd
 import numpy as np
+from natsort import  natsorted
 
 
 def prepare_paths():
@@ -33,6 +35,23 @@ def generate_features_paths(root_path: Path = Path.cwd()) -> Tuple[Path, Path, P
         yamnet_path.mkdir()
 
     return features_path, l3_path, yamnet_path
+
+
+def generate_evaluation_paths(root_path: Path = Path.cwd()) -> Tuple[Path, Path, Path]:
+    evaluation_path = root_path / 'data/evaluation'
+    l3_path = evaluation_path / 'l3_evaluation'
+    yamnet_path = evaluation_path / 'yamnet_evaluation'
+
+    if not evaluation_path.is_dir():
+        evaluation_path.mkdir()
+    if not l3_path.is_dir():
+        l3_path.mkdir()
+        generate_full_trios_path(l3_path)
+
+    if not yamnet_path.is_dir():
+        yamnet_path.mkdir()
+
+    return evaluation_path, l3_path, yamnet_path
 
 
 def generate_full_trios_path(path: Path) -> None:
@@ -154,17 +173,17 @@ def create_configuration_csvs(pattern_files: list,
                 test_classes_list = []
             elif openness == 50:
                 test_classes_list = ['clapping', 'door_slam', 'water', 'music', 'pots_and_pans']
-                number_of_folds = number_of_folds + 1
+                number_of_test_folds = number_of_folds + 1
             elif openness == 100:
                 test_classes_list = ['car_horn', 'clapping', 'cough', 'door_slam', 'engine',
                                      'keyboard_tap', 'music', 'pots_and_pans', 'steps', 'water']
-                number_of_folds = number_of_folds + 1
+                number_of_test_folds = number_of_folds + 1
 
             for class_name in test_classes_list:
-                indexes = match_substring(pattern_files, class_name)
+                indexes = match_substring(files, class_name)
 
                 for i in indexes:
-                    train_folds[i] = number_of_folds
+                    train_folds[i] = number_of_test_folds
 
             csv_root_path = metadata_path / 'csv'
             if not csv_root_path.is_dir():
@@ -181,9 +200,15 @@ def convert_to_one_hot(labels: list) -> np.ndarray:
 
     # Convert to one_
     one_hot_array = np.zeros((label_ids.shape[0], number_of_labels))
-    one_hot_array[np.arange(label_ids.size), label_ids] = 1
 
-    return one_hot_array[:, 1:]
+    try:
+        # Case pattern + unknown files
+        one_hot_array[np.arange(label_ids.size), label_ids] = 1
+        return one_hot_array[:, 1:]
+    except IndexError:
+        # Cas only pattern files
+        one_hot_array[np.arange(label_ids.size), label_ids-1] = 1
+        return one_hot_array
 
 
 def convert_labels_to_ids(labels: list) -> list:
@@ -194,3 +219,13 @@ def convert_labels_to_ids(labels: list) -> list:
     label_ids = [label_to_id_converter[label] for label in labels]
 
     return label_ids
+
+
+def natural_sort(files: list) -> list:
+    return natsorted(files)
+
+
+def lists_diff(list1: list, list2: list) -> list:
+    difference = set(list1).symmetric_difference(set(list2))
+
+    return list(difference)
