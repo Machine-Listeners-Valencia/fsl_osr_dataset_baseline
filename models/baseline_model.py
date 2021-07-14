@@ -62,7 +62,8 @@ class BaselineModel:
                        validation_data=(X_val, y_val),
                        epochs=epochs,
                        batch_size=batch_size,
-                       callbacks=[self.lr_plateau, self.early_stopping])
+                       callbacks=[self.lr_plateau, self.early_stopping],
+                       verbose=0)
 
     def openset_predict(self, X_test: np.ndarray) -> np.ndarray:
         predictions = self.model.predict(X_test)
