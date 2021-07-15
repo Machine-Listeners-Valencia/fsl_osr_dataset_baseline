@@ -84,10 +84,17 @@ def generate_embeddings():
 
 
 if __name__ == "__main__":
+    # Load configuration parameters
     configuration = yaml.safe_load(open('configuration.yaml'))
     feature_extractors = configuration['feature_extractors']
     training_modes = configuration['training_modes']
     train_parameters = configuration['train_parameters']
-    # prepare_splits()
-    # generate_embeddings()
-    train.do_training(training_modes, feature_extractors, train_parameters)
+    stages = configuration['stages']
+
+    # Run specified stages
+    if stages['splits']:
+        prepare_splits()
+    elif stages['embeddings']:
+        generate_embeddings()
+    elif stages['training']:
+        train.do_training(training_modes, feature_extractors, train_parameters)
