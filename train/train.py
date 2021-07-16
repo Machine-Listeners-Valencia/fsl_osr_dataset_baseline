@@ -6,6 +6,7 @@ from pathlib import Path
 import pandas as pd
 from sklearn.metrics import accuracy_score
 from tqdm import tqdm
+import tensorflow.keras.backend as K
 
 from utils import utils
 from models import baseline_model
@@ -68,6 +69,7 @@ def do_training(training_modes: list, feature_extractors: list, train_parameters
                         number_of_iterations = determine_number_of_iterations(iterations, intermediate_training)
                         start_value = iterations[-1] if intermediate_training else 0
                         end_value = 5
+                        K.clear_session()
                         for i in tqdm(range(start_value, end_value)):
                             # Train model
                             model = baseline_model.BaselineModel(embedding_size, number_of_classes)

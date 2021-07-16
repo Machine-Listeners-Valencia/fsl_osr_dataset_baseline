@@ -3,3 +3,12 @@ data/
 
 #IntelliJ
 .idea/
+
+# Pycache
+feature_extraction/__pycache__/
+models/__pycache__/
+train/__pycache__/
+utils/__pycache__/
+
+# Data
+data-20210715T064342Z-001.zip
