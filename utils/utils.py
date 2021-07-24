@@ -109,6 +109,28 @@ def prepare_files_and_labels(path: Path, tags: list, seed: int = 42) -> Tuple[li
     return files, labels
 
 
+def prepare_pattern_trios_indexes(number_of_folder_files: int, number_of_classes: int, seed: int = 42) -> list:
+    np.random.seed(seed=seed)
+    number_of_positive_classes = number_of_classes - 1  # take into account only pattern classes
+    random_group = np.random.permutation(number_of_positive_classes)
+    random_group = list(random_group)
+
+    triplet_index = []
+    for index in range(number_of_positive_classes):
+        match_index = find(random_group, index)
+        match_index = match_index[0]
+        group = match_index // 3
+        triplet_index.append(group)
+
+    trios_indexes = list(np.repeat(triplet_index, number_of_folder_files))
+
+    return trios_indexes
+
+
+def prepare_unknown_trios_indexes(unknown_files: list) -> list:
+    return [8] * len(unknown_files)
+
+
 def prepare_train_folds(shots: dict, number_of_folder_files: int, folders: list) -> dict:
     folds = {}
     for shot, number_of_folds in shots.items():
@@ -154,18 +176,30 @@ def match_substring(elements_list: list, match_pattern: str) -> list:
     return indexes
 
 
+def find(elements_list: list, match_pattern: str) -> list:
+    """
+    Return indexes of a list that matches with pattern. Similar to MATLAB find function
+    """
+    indexes = [i for i in range(len(elements_list)) if elements_list[i] == match_pattern]
+
+    return indexes
+
+
 def create_configuration_csvs(pattern_files: list,
                               unknown_files: list,
                               pattern_labels: list,
                               unknown_labels: list,
                               pattern_train_folds: list,
                               unknown_train_folds: list,
+                              pattern_trios_indexes: list,
+                              unknown_trios_indexes: list,
                               shots: dict,
                               openness_factors: list,
                               metadata_path: Path
                               ) -> None:
     files = pattern_files + unknown_files
     labels = pattern_labels + unknown_labels
+    trios_indexes = pattern_trios_indexes + unknown_trios_indexes
     for shot, number_of_folds in shots.items():
         train_folds = pattern_train_folds[shot] + unknown_train_folds[shot]
         for openness in openness_factors:
@@ -189,8 +223,8 @@ def create_configuration_csvs(pattern_files: list,
             if not csv_root_path.is_dir():
                 csv_root_path.mkdir()
             csv_path = csv_root_path / f"few_shot_k_{shot}_openness_{openness}.csv"
-            metadata = {'filename': files, 'target': labels, 'fold': train_folds}
-            metadata_df = pd.DataFrame(metadata, columns=['filename', 'target', 'fold'])
+            metadata = {'filename': files, 'target': labels, 'fold': train_folds, 'trio_index': trios_indexes}
+            metadata_df = pd.DataFrame(metadata, columns=['filename', 'target', 'fold', 'trio_index'])
             metadata_df.to_csv(path_or_buf=csv_path, index=False, header=True)
 
 

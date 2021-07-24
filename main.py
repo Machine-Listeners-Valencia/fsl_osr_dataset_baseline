@@ -20,22 +20,25 @@ def prepare_splits():
     unknown_folders = utils.folders_in_path(unknown_path)
 
     # Recover options
-    options = utils.prepare_extraction_options(vars()['pattern_path'])
+    options = utils.prepare_extraction_options(pattern_path)
     tags, shots, openness_factors, number_of_classes, number_of_folder_files = options
 
     # Prepare list of files, labels and train folds for pattern files
     pattern_files, pattern_labels = utils.prepare_files_and_labels(pattern_path, tags[1:])
     pattern_train_folds = utils.prepare_train_folds(shots, number_of_folder_files, pattern_folders)
+    pattern_trios_indexes = utils.prepare_pattern_trios_indexes(number_of_folder_files, number_of_classes)
 
     # Prepare list of files, labels and train folds for unknown files
     unknown_files, unknown_labels = utils.prepare_unknown_files_and_labels(unknown_path)
     unknown_train_folds = utils.prepare_train_folds(shots, number_of_folder_files, unknown_folders)
+    unknown_trios_indexes = utils.prepare_unknown_trios_indexes(unknown_files)
 
     utils.create_configuration_csvs(pattern_files, unknown_files, pattern_labels, unknown_labels, pattern_train_folds,
-                                    unknown_train_folds, shots, openness_factors, metadata_path)
+                                    unknown_train_folds, pattern_trios_indexes, unknown_trios_indexes,
+                                    shots, openness_factors, metadata_path)
 
 
-def generate_embeddings():
+def generate_embeddings(modes: list, extractors: list):
     cwd_path = Path.cwd()
 
     # Input files
@@ -43,10 +46,6 @@ def generate_embeddings():
 
     # Output paths
     features_path, l3_path, yamnet_path = utils.generate_features_paths()
-
-    # Analysis params
-    modes = ['full', 'trios']
-    extractors = ['yamnet']
 
     for mode in modes:
         if mode == 'full':
@@ -95,6 +94,6 @@ if __name__ == "__main__":
     if stages['splits']:
         prepare_splits()
     elif stages['embeddings']:
-        generate_embeddings()
+        generate_embeddings(training_modes, feature_extractors)
     elif stages['training']:
         train.do_training(training_modes, feature_extractors, train_parameters)
