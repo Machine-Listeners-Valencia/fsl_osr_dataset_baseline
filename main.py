@@ -7,7 +7,7 @@ import numpy as np
 from tqdm import tqdm
 
 from utils import utils
-from feature_extraction import transfer_learning
+from feature_extraction import embeddings
 from train import train
 
 
@@ -38,50 +38,6 @@ def prepare_splits():
                                     shots, openness_factors, metadata_path)
 
 
-def generate_embeddings(modes: list, extractors: list):
-    cwd_path = Path.cwd()
-
-    # Input files
-    csv_path = utils.recover_csv_meta_path()
-
-    # Output paths
-    features_path, l3_path, yamnet_path = utils.generate_features_paths()
-
-    for mode in modes:
-        if mode == 'full':
-            for extractor in extractors:
-                if extractor == 'l3':
-                    model = transfer_learning.AudioL3()
-                    storing_path = l3_path / 'full'
-                    embedding_size = 512
-                if extractor == 'yamnet':
-                    model = transfer_learning.YamNet()
-                    storing_path = yamnet_path / 'full'
-                    embedding_size = 1024
-                for csv_file in sorted(csv_path.iterdir()):
-                    print(f"Extracting {csv_file.stem}")
-                    audios_df = pd.read_csv(csv_file)
-                    training_folds = list(np.unique(audios_df['fold'].values))
-
-                    for i in tqdm(range(len(training_folds))):
-                        fold_audios_df = audios_df[audios_df['fold'] == i+1]
-                        fold_audios_df = fold_audios_df.reset_index(drop=True)
-
-                        embeddings = np.empty([fold_audios_df.shape[0], embedding_size])
-                        for j, row in fold_audios_df.iterrows():
-                            audio_emb = model.get_embedding(row['filename'])
-                            embeddings[j, :] = audio_emb
-
-                        fold_features = {'features': embeddings,
-                                         'labels': utils.convert_to_one_hot(fold_audios_df['target'].values.tolist())}
-
-                        storing_file = storing_path / f"{csv_file.stem}"
-                        if not storing_file.is_dir():
-                            storing_file.mkdir(parents=True)
-                        storing_file = storing_file / f"training_fold_{i+1}.pkl"
-                        pickle.dump(fold_features, open(storing_file, 'wb'))
-
-
 if __name__ == "__main__":
     # Load configuration parameters
     configuration = yaml.safe_load(open('configuration.yaml'))
@@ -94,6 +50,6 @@ if __name__ == "__main__":
     if stages['splits']:
         prepare_splits()
     elif stages['embeddings']:
-        generate_embeddings(training_modes, feature_extractors)
+        embeddings.generate_embeddings(training_modes, feature_extractors)
     elif stages['training']:
         train.do_training(training_modes, feature_extractors, train_parameters)

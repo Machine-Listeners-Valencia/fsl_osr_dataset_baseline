@@ -230,9 +230,10 @@ def create_configuration_csvs(pattern_files: list,
 
 def convert_to_one_hot(labels: list) -> np.ndarray:
     label_ids = np.array(convert_labels_to_ids(labels))
-    number_of_labels = len(np.unique(label_ids))
 
-    # Convert to one_
+    # Consider 25 classes if 0 class (unknown) is present
+    number_of_labels = 25 if 0 in label_ids else 24
+    # Convert to one hot
     one_hot_array = np.zeros((label_ids.shape[0], number_of_labels))
 
     try:
@@ -240,7 +241,7 @@ def convert_to_one_hot(labels: list) -> np.ndarray:
         one_hot_array[np.arange(label_ids.size), label_ids] = 1
         return one_hot_array[:, 1:]
     except IndexError:
-        # Cas only pattern files
+        # Case only pattern files
         one_hot_array[np.arange(label_ids.size), label_ids-1] = 1
         return one_hot_array
 
