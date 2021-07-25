@@ -49,7 +49,7 @@ if __name__ == "__main__":
     # Run specified stages
     if stages['splits']:
         prepare_splits()
-    elif stages['embeddings']:
+    if stages['embeddings']:
         embeddings.generate_embeddings(training_modes, feature_extractors)
-    elif stages['training']:
+    if stages['training']:
         train.do_training(training_modes, feature_extractors, train_parameters)
