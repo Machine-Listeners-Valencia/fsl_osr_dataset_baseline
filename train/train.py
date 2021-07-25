@@ -19,79 +19,118 @@ def do_training(training_modes: list, feature_extractors: list, train_parameters
         if mode == 'full':
             number_of_classes = 24
             for extractor in feature_extractors:
-                if extractor == 'l3':
-                    embedding_size = 512
-                    features_root_path = l3_path / mode
-                    csv_root_storing_path = l3_evaluation_path / mode
-                    if not csv_root_storing_path.is_dir():
-                        csv_root_storing_path.mkdir()
-                if extractor == 'yamnet':
-                    embedding_size = 1024
-                    features_root_path = yamnet_path / mode
-                    csv_root_storing_path = yamnet_evaluation_path / mode
-                    if not csv_root_storing_path.is_dir():
-                        csv_root_storing_path.mkdir()
+                extractor_data = select_feature_extractor(extractor, mode, l3_path, l3_evaluation_path,
+                                                          yamnet_path, yamnet_evaluation_path)
+                embedding_size, features_root_path, csv_root_storing_path = extractor_data
 
-                for features_folder in features_root_path.iterdir():
-                    print(f"{features_folder.stem}")
-                    # Training files
-                    files = [str(item) for item in features_folder.iterdir() if item.is_file()]
-                    files = utils.natural_sort(files)
+                execute_trainings(features_root_path, csv_root_storing_path, embedding_size,
+                                  number_of_classes, train_parameters)
 
-                    # Check if exist train folder and generate list of folders according to that
-                    exist_test = check_test_folder(files)
-                    train_folders = generate_train_folders(files, exist_test)
+        elif mode == 'trios':
+            number_of_classes = 3
+            for extractor in feature_extractors:
+                extractor_data = select_feature_extractor(extractor, mode, l3_path, l3_evaluation_path,
+                                                          yamnet_path, yamnet_evaluation_path)
+                embedding_size, features_root_path, csv_root_storing_path = extractor_data
 
-                    # CSV storing path
-                    csv_path = csv_root_storing_path / f"{features_folder.stem}.csv"
-                    train_folders, intermediate_training, iterations = check_intermediate_training(csv_path,
-                                                                                                   train_folders)
+                for trio_folder in sorted(features_root_path.iterdir()):
+                    csv_trio_root_storing_path = csv_root_storing_path / trio_folder.stem
+                    if not csv_trio_root_storing_path.is_dir():
+                        csv_trio_root_storing_path.mkdir()
 
-                    for train_folder in tqdm(train_folders):
-                        if 'X_val' in locals():
-                            del X_val
-                            del y_val
+                    execute_trainings(trio_folder, csv_trio_root_storing_path, embedding_size,
+                                      number_of_classes, train_parameters)
 
-                        # Generate splits
-                        splitted_data = generate_train_val_test_splits(files, train_folder, exist_test)
-                        try:
-                            X_train, y_train, X_val, y_val, X_test, y_test = splitted_data
-                            y_val_test = np.concatenate((y_val, y_test))
-                        except:
-                            X_train, y_train, X_val, y_val = splitted_data
-                            y_test = y_val_test = y_val
 
-                        known_labels, unknown_labels, known_indexes, unknown_indexes = split_known_unknown(y_val,
-                                                                                                           y_val_test)
+def execute_trainings(features_root_path: Path,
+                      csv_root_storing_path: Path,
+                      embedding_size: int,
+                      number_of_classes: int,
+                      train_parameters: dict
+                      ) -> None:
+    for features_folder in sorted(features_root_path.iterdir()):
+        print(f"{features_folder.stem}")
+        # Training files
+        files = [str(item) for item in features_folder.iterdir() if item.is_file()]
+        files = utils.natural_sort(files)
 
-                        # Number of iterations
-                        number_of_iterations = determine_number_of_iterations(iterations, intermediate_training)
-                        start_value = iterations[-1] if intermediate_training else 0
-                        end_value = 5
-                        for i in tqdm(range(start_value, end_value)):
-                            # Train model
-                            model = baseline_model.BaselineModel(embedding_size, number_of_classes)
-                            model.train(X_train,
-                                        y_train,
-                                        X_val,
-                                        y_val,
-                                        train_parameters['epochs'],
-                                        train_parameters['batch_size'])
+        # Check if exist train folder and generate list of folders according to that
+        exist_test = check_test_folder(files)
+        train_folders = generate_train_folders(files, exist_test)
 
-                            try:
-                                accuracies = calculate_accuracies(exist_test, model, X_val, known_labels, known_indexes,
-                                                                  unknown_labels, unknown_indexes, X_test, y_test)
-                                known_accuracy, unknown_accuracy, test_accuracy = accuracies
-                            except:
-                                accuracies = calculate_accuracies(exist_test, model, X_val, known_labels,
-                                                                  known_indexes, unknown_labels, unknown_indexes)
-                                known_accuracy, unknown_accuracy, test_accuracy = accuracies
+        # CSV storing path
+        csv_path = csv_root_storing_path / f"{features_folder.stem}.csv"
+        train_folders, intermediate_training, iterations = check_intermediate_training(csv_path,
+                                                                                       train_folders)
 
-                            # Save results to csv
-                            store_to_csv(csv_path, train_folder, i, known_accuracy, unknown_accuracy, test_accuracy )
+        for train_folder in tqdm(train_folders):
+            if 'X_val' in locals():
+                del X_val
+                del y_val
 
-                        # Set intermediate_training to False to continue with next folders
-                        intermediate_training = False
+            # Generate splits
+            splitted_data = generate_train_val_test_splits(files, train_folder, exist_test)
+            try:
+                X_train, y_train, X_val, y_val, X_test, y_test = splitted_data
+                y_val_test = np.concatenate((y_val, y_test))
+            except:
+                X_train, y_train, X_val, y_val = splitted_data
+                y_test = y_val_test = y_val
+
+            known_labels, unknown_labels, known_indexes, unknown_indexes = split_known_unknown(y_val,
+                                                                                               y_val_test)
+
+            # Number of iterations
+            number_of_iterations = determine_number_of_iterations(iterations, intermediate_training)
+            start_value = iterations[-1] if intermediate_training else 0
+            end_value = 5
+            for i in tqdm(range(start_value, end_value)):
+                # Train model
+                model = baseline_model.BaselineModel(embedding_size, number_of_classes)
+                model.train(X_train,
+                            y_train,
+                            X_val,
+                            y_val,
+                            train_parameters['epochs'],
+                            train_parameters['batch_size'])
+
+                try:
+                    accuracies = calculate_accuracies(exist_test, model, X_val, known_labels, known_indexes,
+                                                      unknown_labels, unknown_indexes, X_test, y_test)
+                    known_accuracy, unknown_accuracy, test_accuracy = accuracies
+                except:
+                    accuracies = calculate_accuracies(exist_test, model, X_val, known_labels,
+                                                      known_indexes, unknown_labels, unknown_indexes)
+                    known_accuracy, unknown_accuracy, test_accuracy = accuracies
+
+                # Save results to csv
+                store_to_csv(csv_path, train_folder, i, known_accuracy, unknown_accuracy, test_accuracy)
+
+            # Set intermediate_training to False to continue with next folders
+            intermediate_training = False
+
+
+def select_feature_extractor(extractor: str,
+                             mode: str,
+                             l3_path: Path,
+                             l3_evaluation_path: Path,
+                             yamnet_path: Path,
+                             yamnet_evaluation_path: Path
+                             ) -> Tuple[int, Path, Path]:
+    if extractor == 'l3':
+        embedding_size = 512
+        features_root_path = l3_path / mode
+        csv_root_storing_path = l3_evaluation_path / mode
+    if extractor == 'yamnet':
+        embedding_size = 1024
+        features_root_path = yamnet_path / mode
+        csv_root_storing_path = yamnet_evaluation_path / mode
+
+    # Create csv_root_storing_path if does not exist
+    if not csv_root_storing_path.is_dir():
+        csv_root_storing_path.mkdir()
+
+    return embedding_size, features_root_path, csv_root_storing_path
 
 
 def check_test_folder(files: list) -> bool:
@@ -226,7 +265,7 @@ def store_to_csv(path: Path,
 
     metadata = {'train_fold': folder, 'iteration': iteration, 'known_acc': accuracies_known,
                 'unknown_acc': accuracies_unknown, 'test_acc': accuracies_test}
-    metadata_df = pd.DataFrame(metadata,  columns=['train_fold', 'iteration', 'known_acc', 'unknown_acc', 'test_acc'])
+    metadata_df = pd.DataFrame(metadata, columns=['train_fold', 'iteration', 'known_acc', 'unknown_acc', 'test_acc'])
 
     if path.is_file():
         metadata_df.to_csv(path_or_buf=path, mode='a', index=False, header=False)
