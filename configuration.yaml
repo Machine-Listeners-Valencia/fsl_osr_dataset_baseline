@@ -1,13 +1,14 @@
 stages:
-  splits: False
-  embeddings: False
+  splits: True
+  embeddings: True
   training: True
 
 training_modes:
-  - full
+  - trios
 
 feature_extractors:
   - yamnet
+  - l3
 
 train_parameters:
   epochs: 200
