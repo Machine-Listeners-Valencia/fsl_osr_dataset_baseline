@@ -3,3 +3,9 @@ data/
 
 #IntelliJ
 .idea/
+
+# DS Store
+.DS_Store
+
+# pycache
+__pycache__/
