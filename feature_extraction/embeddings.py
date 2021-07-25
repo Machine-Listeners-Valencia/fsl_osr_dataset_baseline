@@ -44,7 +44,8 @@ def generate_embeddings(modes: list, extractors: list):
                         storing_trio_path = storing_path / f"trio_{j}"
 
                         # Extract and store training folds
-                        extract_folds(trio_df, model, training_folds, embedding_size, csv_file.stem, storing_trio_path)
+                        extract_folds(trio_df, model, training_folds, embedding_size,
+                                      csv_file.stem, storing_trio_path, mode)
 
 
 def extract_folds(df: pd.DataFrame,
@@ -52,7 +53,8 @@ def extract_folds(df: pd.DataFrame,
                   training_folds: int,
                   embedding_size: int,
                   csv_name: str,
-                  storing_root_path: Path
+                  storing_root_path: Path,
+                  mode: str = 'full'
                   ) -> None:
     for i in tqdm(training_folds):
         # Select audios of specific fold
@@ -67,8 +69,7 @@ def extract_folds(df: pd.DataFrame,
 
         # Prepare training structure (features + labels)
         fold_features = {'features': embeddings,
-                         'labels': utils.convert_to_one_hot(
-                             fold_audios_df['target'].values.tolist())}
+                         'labels': utils.convert_to_one_hot(fold_audios_df['target'].values.tolist(), mode)}
 
         # Store training structure fold into specific path
         storing_file = storing_root_path / f"{csv_name}"

@@ -228,23 +228,48 @@ def create_configuration_csvs(pattern_files: list,
             metadata_df.to_csv(path_or_buf=csv_path, index=False, header=True)
 
 
-def convert_to_one_hot(labels: list) -> np.ndarray:
+def convert_to_one_hot(labels: list, mode) -> np.ndarray:
     label_ids = np.array(convert_labels_to_ids(labels))
 
-    # Consider 25 classes if 0 class (unknown) is present
-    number_of_labels = 25 if 0 in label_ids else 24
+    if mode == 'full':
+        # Consider 25 classes if 0 class (unknown) is present
+        number_of_labels = len(unique(label_ids))
+    elif mode == 'trios':
+        label_ids, number_of_labels = map_to_trios_labels(label_ids)
+
     # Convert to one hot
     one_hot_array = np.zeros((label_ids.shape[0], number_of_labels))
 
-    try:
+    unique_labels = unique(label_ids)
+    if 0 in unique_labels:
         # Case pattern + unknown files
         one_hot_array[np.arange(label_ids.size), label_ids] = 1
         return one_hot_array[:, 1:]
-    except IndexError:
+    else:
         # Case only pattern files
         one_hot_array[np.arange(label_ids.size), label_ids-1] = 1
         return one_hot_array
 
+
+def map_to_trios_labels(label_ids: list) -> Tuple[np.ndarray, int]:
+    unique_labels = unique(label_ids)
+    if 0 in unique_labels:
+        labels_mapper = {label: i for i, label in enumerate(unique_labels)}
+        label_ids = [labels_mapper[label] for label in label_ids]
+    else:
+        labels_mapper = {label: i + 1 for i, label in enumerate(unique_labels)}
+        label_ids = [labels_mapper[label] for label in label_ids]
+
+    number_of_labels = len(unique_labels)
+
+    return np.array(label_ids), number_of_labels
+
+
+def unique(elements: list) -> list:
+    unique_elements = list(set(elements))
+    unique_elements.sort()
+
+    return unique_elements
 
 def convert_labels_to_ids(labels: list) -> list:
     label_to_id_converter = {f"pattern_{str(i + 1).zfill(2)}": i + 1 for i in range(24)}
