@@ -1,8 +1,8 @@
 import sys
-
+import pickle
 import tensorflow
 
-if sys.argv[1] == 'l3net':
+if sys.argv[1] == 'l3':
     from feature_extraction.transfer_learning import AudioL3
     extractor = AudioL3()
 elif sys.argv[2] == 'yamnet':
@@ -12,11 +12,11 @@ else:
     raise Exception('Not available pre-trained network')
     print('Not available pre-trained network')
 
-if sys.argv[1] == 'l3net':
+if sys.argv[1] == 'l3':
     emb = extractor.get_embedding(sys.argv[2])
 
-model = tensorflow.keras.models.load_model(sys.argv[3])
+model = pickle.load(open(sys.argv[3],"rb"))
 
-model.predict(emb)
+preds = model.openset_predict(emb)
 
-print(emb)
+print(preds)
