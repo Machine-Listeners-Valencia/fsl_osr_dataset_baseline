@@ -4,6 +4,7 @@ stages:
   training: True
 
 training_modes:
+  - full
   - trios
 
 feature_extractors:
