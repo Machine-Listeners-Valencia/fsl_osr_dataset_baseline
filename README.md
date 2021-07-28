@@ -18,6 +18,34 @@ conda activate fsl_osr
 pip install -r requirements.txt
 ```
 
+## Replicating experimentation
+
+Launch code as it is `pythom main.py`. `configuration.yaml` is set will all possible options
+
+## Demo
+
+For demonstration purposes, two pre-trained models have been released with 4 shot and openness 0 and 24 known classes.
+In order to check its behaviour please launch `demo.py` as:
+
+```bash
+python demo.py <network> <path to wav> <path to model in h5 format>
+```
+
+*Examples:*
+
+```bash
+python demo.py yamnet demo\wavs\pattern_01_01.wav demo\pre-trained-models\yamnet.h5
+```
+Output: [[1. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0.]]
+
+```bash
+python demo.py yamnet data\unwanted_sounds\car_horn\car_horn_01.wav demo\pre-trained-models\yamnet.h5
+```
+Output: [[0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0.]]
+
+As it can be seen, a pattern sound is correctly classified with a 1 in the specific position and the unwanted/unknown
+is rejected with all 0.
+
 ## Citation
 
 Submitted to IEEEAccess
