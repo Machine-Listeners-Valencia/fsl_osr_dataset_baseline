@@ -20,7 +20,7 @@ pip install -r requirements.txt
 
 ## Replicating experimentation
 
-Launch code as it is `pythom main.py`. `configuration.yaml` is set will all possible options
+Launch code as it is `python main.py`. `configuration.yaml` is set will all possible options
 
 ## Demo
 
