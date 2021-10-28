@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 
 from utils import utils
-from feature_extraction import transfer_learning
+from feature_extraction import transfer_learning, spectral
 
 
 def generate_embeddings(modes: list, extractors: list):
@@ -16,12 +16,12 @@ def generate_embeddings(modes: list, extractors: list):
     csv_path = utils.recover_csv_meta_path()
 
     # Output paths
-    features_path, l3_path, yamnet_path = utils.generate_features_paths()
+    features_path, l3_path, yamnet_path, mel_spec_paths = utils.generate_features_paths()
 
     for mode in modes:
         if mode == 'full':
             for extractor in extractors:
-                model, storing_path, embedding_size = select_feature_extractor(extractor, mode, l3_path, yamnet_path)
+                model, storing_path, embedding_size = select_feature_extractor(extractor, mode, l3_path, yamnet_path, mel_spec_paths)
                 for csv_file in sorted(csv_path.iterdir()):
                     print(f"Extracting {csv_file.stem}")
                     audios_df = pd.read_csv(csv_file)
@@ -82,7 +82,8 @@ def extract_folds(df: pd.DataFrame,
 def select_feature_extractor(extractor: str,
                              training_mode: str,
                              l3_path: Path,
-                             yamnet_path: Path
+                             yamnet_path: Path,
+                             mel_spec_paths: Tuple[Path, Path, Path, Path]
                              ) -> Tuple[Union[transfer_learning.AudioL3, transfer_learning.YamNet, Path, int]]:
     if extractor == 'l3':
         model = transfer_learning.AudioL3()
@@ -92,5 +93,11 @@ def select_feature_extractor(extractor: str,
         model = transfer_learning.YamNet()
         storing_path = yamnet_path / training_mode
         embedding_size = 1024
+    if extractor == 'melspectrogram':
+        n_bands = 64
+        sr = 16000
+        win_len = 0.04
+        hop_len = 0.02
+        model = spectral.MelSpectrogram(n_bands=n_bands, sr=sr, win_len=win_len, hop_len=hop_len)
 
     return model, storing_path, embedding_size
