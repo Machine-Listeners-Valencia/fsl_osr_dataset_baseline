@@ -5,7 +5,7 @@ import re
 from pathlib import Path
 import pandas as pd
 import numpy as np
-from natsort import  natsorted
+from natsort import natsorted
 
 
 def prepare_paths():
@@ -20,10 +20,16 @@ def prepare_paths():
     return data_path, metadata_path, pattern_path, unwanted_path
 
 
-def generate_features_paths(root_path: Path = Path.cwd()) -> Tuple[Path, Path, Path]:
+def generate_features_paths(root_path: Path = Path.cwd()) -> Tuple[Path, Path, Path, Tuple[Path, Path, Path, Path]]:
     features_path = root_path / 'data/features'
     l3_path = features_path / 'l3_features'
     yamnet_path = features_path / 'yamnet_features'
+    mel_spec_root_path = features_path / 'mel_spec'
+    mel_spec_not_by_folds = mel_spec_root_path / 'not_by_folds'
+    mel_spec_pattern_path = mel_spec_not_by_folds / 'pattern_sounds'
+    mel_spec_unwanted_path = mel_spec_not_by_folds / 'unwanted_sounds'
+    mel_spec_norm_factors = mel_spec_root_path / 'normalization_factors'
+    mel_spec_features = mel_spec_root_path / 'mel_spec_features'
 
     if not features_path.is_dir():
         features_path.mkdir()
@@ -33,8 +39,18 @@ def generate_features_paths(root_path: Path = Path.cwd()) -> Tuple[Path, Path, P
 
     if not yamnet_path.is_dir():
         yamnet_path.mkdir()
+        generate_full_trios_path(yamnet_path)
 
-    return features_path, l3_path, yamnet_path
+    if not mel_spec_root_path.is_dir():
+        mel_spec_root_path.mkdir()
+        mel_spec_not_by_folds.mkdir()
+        mel_spec_pattern_path.mkdir()
+        mel_spec_unwanted_path.mkdir()
+        mel_spec_norm_factors.mkdir()
+        mel_spec_features.mkdir()
+        generate_full_trios_path(mel_spec_features)
+
+    return features_path, l3_path, yamnet_path, (mel_spec_pattern_path, mel_spec_unwanted_path, mel_spec_norm_factors, mel_spec_features)
 
 
 def generate_evaluation_paths(root_path: Path = Path.cwd()) -> Tuple[Path, Path, Path]:
@@ -247,7 +263,7 @@ def convert_to_one_hot(labels: list, mode) -> np.ndarray:
         return one_hot_array[:, 1:]
     else:
         # Case only pattern files
-        one_hot_array[np.arange(label_ids.size), label_ids-1] = 1
+        one_hot_array[np.arange(label_ids.size), label_ids - 1] = 1
         return one_hot_array
 
 
@@ -270,6 +286,7 @@ def unique(elements: list) -> list:
     unique_elements.sort()
 
     return unique_elements
+
 
 def convert_labels_to_ids(labels: list) -> list:
     label_to_id_converter = {f"pattern_{str(i + 1).zfill(2)}": i + 1 for i in range(24)}
