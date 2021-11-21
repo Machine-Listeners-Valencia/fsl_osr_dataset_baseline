@@ -47,6 +47,7 @@ def generate_evaluation_paths(root_path: Path = Path.cwd()) -> Tuple[Path, Path,
     evaluation_path = root_path / 'data/evaluation'
     l3_path = evaluation_path / 'l3_evaluation'
     yamnet_path = evaluation_path / 'yamnet_evaluation'
+    mel_spec_path = evaluation_path / 'mel_spec_evaluation'
 
     if not evaluation_path.is_dir():
         evaluation_path.mkdir()
@@ -56,8 +57,13 @@ def generate_evaluation_paths(root_path: Path = Path.cwd()) -> Tuple[Path, Path,
 
     if not yamnet_path.is_dir():
         yamnet_path.mkdir()
+        generate_full_trios_path(yamnet_path)
 
-    return evaluation_path, l3_path, yamnet_path
+    if not mel_spec_path.is_dir():
+        mel_spec_path.mkdir()
+        generate_full_trios_path(mel_spec_path)
+
+    return evaluation_path, l3_path, yamnet_path, mel_spec_path
 
 
 def generate_full_trios_path(path: Path) -> None:

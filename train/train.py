@@ -13,8 +13,8 @@ from models import baseline_model
 
 
 def do_training(training_modes: list, feature_extractors: list, train_parameters: dict):
-    features_path, l3_path, yamnet_path = utils.generate_features_paths()
-    evaluation_path, l3_evaluation_path, yamnet_evaluation_path = utils.generate_evaluation_paths()
+    features_path, l3_path, yamnet_path, mel_spec_path = utils.generate_features_paths()
+    evaluation_path, l3_evaluation_path, yamnet_evaluation_path, mel_spec_path = utils.generate_evaluation_paths()
 
     for mode in training_modes:
         if mode == 'full':
