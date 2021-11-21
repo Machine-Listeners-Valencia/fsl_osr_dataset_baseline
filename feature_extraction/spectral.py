@@ -2,7 +2,7 @@ import numpy as np
 import pathlib
 import librosa
 import scipy
-from features.audio import AudioReader
+from feature_extraction.audio import AudioReader
 
 
 class STFT:
