@@ -15,7 +15,7 @@ class AudioReader:
 
     """
 
-    def __init__(self, output_sr=48000, channel='mono', duration=None):
+    def __init__(self, output_sr=48000, channel='mono', duration=None, norm=True):
         """
         init method
 
@@ -42,6 +42,7 @@ class AudioReader:
         self.output_sr = output_sr
         self.channel = channel
         self.duration = duration
+        self.norm = True
 
     def read(self, path):
         """
@@ -81,6 +82,9 @@ class AudioReader:
                     y = np.concatenate((y, pad))
 
         y = self.select_channel(y)
+
+        if self.norm:
+            y = librosa.util.normalize(y)
 
         return y
 
