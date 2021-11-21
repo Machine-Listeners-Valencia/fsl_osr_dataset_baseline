@@ -121,7 +121,7 @@ class OpenSetDCAE:
         """
         input_model = keras.layers.Input(shape=(self.nceps, self.feat_length, 1), dtype='float32')
 
-        x = keras.layers.Conv2D(64, kernel_size=3, padding='same')(input)
+        x = keras.layers.Conv2D(64, kernel_size=3, padding='same')(input_model)
         x = keras.layers.BatchNormalization()(x)
         x = keras.layers.Activation(activation='relu')(x)
         x = keras.layers.Conv2D(64, kernel_size=3, padding='same')(x)
@@ -154,8 +154,8 @@ class OpenSetDCAE:
         x = keras.layers.GlobalAveragePooling2D()(x)
         model_output = keras.layers.Dense(self.number_of_classes, activation='softmax')(x)
 
-        cnn_model = keras.Model(inputs=[input], outputs=[model_output])
-        cnn_model.compile(loss=keras.losses.categorical_crossentropy, optimizer=keras.optimizers.adam(decay=0.0001),
+        cnn_model = keras.Model(inputs=[input_model], outputs=[model_output])
+        cnn_model.compile(loss=keras.losses.categorical_crossentropy, optimizer=keras.optimizers.Adam(decay=0.0001),
                           metrics=['accuracy'])
 
         return cnn_model
@@ -172,7 +172,7 @@ class OpenSetDCAE:
         input_model = keras.layers.Input(shape=(self.nceps, self.feat_length, 1), dtype='float32')
 
         # encoder
-        x = keras.layers.Conv2D(64, kernel_size=3, padding='same')(input)
+        x = keras.layers.Conv2D(64, kernel_size=3, padding='same')(input_model)
         x = keras.layers.BatchNormalization()(x)
         x = keras.layers.Activation(activation='relu')(x)
         x = keras.layers.Conv2D(64, kernel_size=3, padding='same')(x)
@@ -208,8 +208,8 @@ class OpenSetDCAE:
 
         model_output = keras.layers.Conv2D(1, kernel_size=3, padding='same', activation='relu')(x)
 
-        dcae_model = keras.Model(inputs=[input], outputs=[model_output])
-        dcae_model.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.adam(decay=0.0001),
+        dcae_model = keras.Model(inputs=[input_model], outputs=[model_output])
+        dcae_model.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.Adam(decay=0.0001),
                            metrics=['accuracy'])
 
         return dcae_model

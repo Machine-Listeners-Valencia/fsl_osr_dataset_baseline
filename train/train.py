@@ -102,6 +102,12 @@ def execute_trainings(features_root_path: Path,
                                 train_parameters['batch_size'])
                 else:
                     model = baseline_model.OpenSetDCAE(number_of_classes)
+                    model.train(X_train,
+                                y_train,
+                                X_val,
+                                y_val,
+                                train_parameters['epochs'],
+                                train_parameters['batch_size'])
 
                 try:
                     accuracies = calculate_accuracies(exist_test, model, X_val, known_labels, known_indexes,
