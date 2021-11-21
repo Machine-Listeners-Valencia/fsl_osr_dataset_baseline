@@ -10,18 +10,20 @@ import tensorflow.keras.backend as K
 
 from utils import utils
 from models import baseline_model
+from feature_extraction import spectral
 
 
 def do_training(training_modes: list, feature_extractors: list, train_parameters: dict):
     features_path, l3_path, yamnet_path, mel_spec_path = utils.generate_features_paths()
-    evaluation_path, l3_evaluation_path, yamnet_evaluation_path, mel_spec_path = utils.generate_evaluation_paths()
+    evaluation_path, l3_evaluation_path, yamnet_evaluation_path, mel_spec_path_evaluation = utils.generate_evaluation_paths()
 
     for mode in training_modes:
         if mode == 'full':
             number_of_classes = 24
             for extractor in feature_extractors:
                 extractor_data = select_feature_extractor(extractor, mode, l3_path, l3_evaluation_path,
-                                                          yamnet_path, yamnet_evaluation_path)
+                                                          yamnet_path, yamnet_evaluation_path,
+                                                          mel_spec_path, mel_spec_path_evaluation)
                 embedding_size, features_root_path, csv_root_storing_path = extractor_data
 
                 execute_trainings(features_root_path, csv_root_storing_path, embedding_size,
@@ -49,7 +51,9 @@ def execute_trainings(features_root_path: Path,
                       number_of_classes: int,
                       train_parameters: dict
                       ) -> None:
-    for features_folder in sorted(features_root_path.iterdir()):
+    features_folders_to_iter = [features_folder for features_folder in sorted(features_root_path.iterdir())
+                                if features_folder.is_dir()]
+    for features_folder in features_folders_to_iter:
         print(f"{features_folder.stem}")
         # Training files
         files = [str(item) for item in features_folder.iterdir() if item.is_file()]
@@ -88,13 +92,16 @@ def execute_trainings(features_root_path: Path,
             K.clear_session()
             for i in tqdm(range(start_value, end_value)):
                 # Train model
-                model = baseline_model.BaselineModel(embedding_size, number_of_classes)
-                model.train(X_train,
-                            y_train,
-                            X_val,
-                            y_val,
-                            train_parameters['epochs'],
-                            train_parameters['batch_size'])
+                if embedding_size is not None:
+                    model = baseline_model.BaselineModel(embedding_size, number_of_classes)
+                    model.train(X_train,
+                                y_train,
+                                X_val,
+                                y_val,
+                                train_parameters['epochs'],
+                                train_parameters['batch_size'])
+                else:
+                    model = baseline_model.OpenSetDCAE(number_of_classes)
 
                 try:
                     accuracies = calculate_accuracies(exist_test, model, X_val, known_labels, known_indexes,
@@ -117,8 +124,10 @@ def select_feature_extractor(extractor: str,
                              l3_path: Path,
                              l3_evaluation_path: Path,
                              yamnet_path: Path,
-                             yamnet_evaluation_path: Path
-                             ) -> Tuple[int, Path, Path]:
+                             yamnet_evaluation_path: Path,
+                             mel_spec_path: Path,
+                             mel_spec_evaluation_path: Path
+                             ) -> Tuple[Union[int, None], Path, Path]:
     if extractor == 'l3':
         embedding_size = 512
         features_root_path = l3_path / mode
@@ -127,6 +136,10 @@ def select_feature_extractor(extractor: str,
         embedding_size = 1024
         features_root_path = yamnet_path / mode
         csv_root_storing_path = yamnet_evaluation_path / mode
+    if extractor == 'melspectrogram':
+        features_root_path = mel_spec_path / mode
+        csv_root_storing_path = mel_spec_evaluation_path / mode
+        embedding_size = None
 
     # Create csv_root_storing_path if does not exist
     if not csv_root_storing_path.is_dir():
