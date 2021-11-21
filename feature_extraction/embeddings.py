@@ -21,19 +21,24 @@ def generate_embeddings(modes: list, extractors: list):
     for mode in modes:
         if mode == 'full':
             for extractor in extractors:
-                model, storing_path, embedding_size = select_feature_extractor(extractor, mode, l3_path, yamnet_path, mel_spec_paths)
+                model, storing_path, embedding_size = select_feature_extractor(extractor, mode, l3_path, yamnet_path,
+                                                                               mel_spec_paths)
                 for csv_file in sorted(csv_path.iterdir()):
                     print(f"Extracting {csv_file.stem}")
                     audios_df = pd.read_csv(csv_file)
                     training_folds = list(np.unique(audios_df['fold'].values))
 
                     # Extract and store training folds
-                    extract_folds(audios_df, model, training_folds, embedding_size, csv_file.stem, storing_path)
+                    if extractor == 'melspectrogram':
+                        extract_mel_folds(audios_df, model, training_folds, csv_file.stem, storing_path)
+                    else:
+                        extract_folds(audios_df, model, training_folds, embedding_size, csv_file.stem, storing_path)
 
         elif mode == 'trios':
             number_of_trios = 8
             for extractor in extractors:
-                model, storing_path, embedding_size = select_feature_extractor(extractor, mode, l3_path, yamnet_path)
+                model, storing_path, embedding_size = select_feature_extractor(extractor, mode, l3_path, yamnet_path,
+                                                                               mel_spec_paths)
                 for csv_file in sorted(csv_path.iterdir()):
                     print(f"Extracting {csv_file.stem}")
                     audios_df = pd.read_csv(csv_file)
@@ -44,8 +49,11 @@ def generate_embeddings(modes: list, extractors: list):
                         storing_trio_path = storing_path / f"trio_{j}"
 
                         # Extract and store training folds
-                        extract_folds(trio_df, model, training_folds, embedding_size,
-                                      csv_file.stem, storing_trio_path, mode)
+                        if extractor == 'melspectrogram':
+                            extract_mel_folds(trio_df, model, training_folds, csv_file.stem, storing_path, mode)
+                        else:
+                            extract_folds(trio_df, model, training_folds, embedding_size,
+                                          csv_file.stem, storing_trio_path, mode)
 
 
 def extract_folds(df: pd.DataFrame,
@@ -79,12 +87,43 @@ def extract_folds(df: pd.DataFrame,
         pickle.dump(fold_features, open(storing_file, 'wb'))
 
 
+def extract_mel_folds(df: pd.DataFrame,
+                      model: spectral.MelSpectrogram,
+                      training_folds: int,
+                      csv_name: str,
+                      storing_root_path: Path,
+                      mode: str = 'full'
+                      ) -> None:
+    for i in tqdm(training_folds):
+        # Select audios of specific fold
+        fold_audios_df = df[df['fold'] == i]
+        fold_audios_df = fold_audios_df.reset_index(drop=True)
+
+        # Extract embeddings
+        embeddings = np.empty([fold_audios_df.shape[0], model.n_bands, 200])
+        for j, row in fold_audios_df.iterrows():
+            audio_emb = model.extract(Path(row['filename']))
+            embeddings[j, :, :] = audio_emb[:, :-1]
+
+        # Prepare training structure (features + labels)
+        fold_features = {'features': embeddings,
+                         'labels': utils.convert_to_one_hot(fold_audios_df['target'].values.tolist(), mode)}
+
+        # Store training structure fold into specific path
+        storing_file = storing_root_path / f"{csv_name}"
+        if not storing_file.is_dir():
+            storing_file.mkdir(parents=True)
+        storing_file = storing_file / f"training_fold_{i}.pkl"
+        pickle.dump(fold_features, open(storing_file, 'wb'))
+
+
 def select_feature_extractor(extractor: str,
                              training_mode: str,
                              l3_path: Path,
                              yamnet_path: Path,
-                             mel_spec_paths: Tuple[Path, Path, Path, Path]
-                             ) -> Tuple[Union[transfer_learning.AudioL3, transfer_learning.YamNet, Path, int]]:
+                             mel_spec_paths: Path
+                             ) -> Tuple[Union[transfer_learning.AudioL3, transfer_learning.YamNet,
+                                              spectral.MelSpectrogram], Path, Union[int, None]]:
     if extractor == 'l3':
         model = transfer_learning.AudioL3()
         storing_path = l3_path / training_mode
@@ -99,5 +138,7 @@ def select_feature_extractor(extractor: str,
         win_len = 0.04
         hop_len = 0.02
         model = spectral.MelSpectrogram(n_bands=n_bands, sr=sr, win_len=win_len, hop_len=hop_len)
+        storing_path = mel_spec_paths / training_mode
+        embedding_size = None
 
     return model, storing_path, embedding_size
