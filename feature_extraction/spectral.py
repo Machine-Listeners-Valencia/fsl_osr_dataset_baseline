@@ -21,6 +21,7 @@ class STFT:
         self.sr = 32000
         self.channel = 'mono'
         self.duration = None
+        self.norm_audio = True
 
         for key, value in kwargs.items():
             if key in dir(self):
@@ -43,7 +44,7 @@ class STFT:
         # Read audio and store in 'y' variable
         if isinstance(input_arg, pathlib.Path):
             path = input_arg
-            audio_reader = AudioReader(output_sr=self.sr, channel=self.channel, duration=self.duration)
+            audio_reader = AudioReader(output_sr=self.sr, channel=self.channel, duration=self.duration, norm=self.norm_audio)
             y = audio_reader.read(path)
         elif isinstance(input_arg, np.ndarray):
             y = input_arg

@@ -42,7 +42,7 @@ class AudioReader:
         self.output_sr = output_sr
         self.channel = channel
         self.duration = duration
-        self.norm = True
+        self.norm = norm
 
     def read(self, path):
         """
