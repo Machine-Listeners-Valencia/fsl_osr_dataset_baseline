@@ -16,13 +16,13 @@ def generate_embeddings(modes: list, extractors: list):
     csv_path = utils.recover_csv_meta_path()
 
     # Output paths
-    features_path, l3_path, yamnet_path, mel_spec_paths = utils.generate_features_paths()
+    features_path, l3_path, yamnet_path, mel_spec_path = utils.generate_features_paths()
 
     for mode in modes:
         if mode == 'full':
             for extractor in extractors:
                 model, storing_path, embedding_size = select_feature_extractor(extractor, mode, l3_path, yamnet_path,
-                                                                               mel_spec_paths)
+                                                                               mel_spec_path)
                 for csv_file in sorted(csv_path.iterdir()):
                     print(f"Extracting {csv_file.stem}")
                     audios_df = pd.read_csv(csv_file)
@@ -38,7 +38,7 @@ def generate_embeddings(modes: list, extractors: list):
             number_of_trios = 8
             for extractor in extractors:
                 model, storing_path, embedding_size = select_feature_extractor(extractor, mode, l3_path, yamnet_path,
-                                                                               mel_spec_paths)
+                                                                               mel_spec_path)
                 for csv_file in sorted(csv_path.iterdir()):
                     print(f"Extracting {csv_file.stem}")
                     audios_df = pd.read_csv(csv_file)
