@@ -25,11 +25,6 @@ def generate_features_paths(root_path: Path = Path.cwd()) -> Tuple[Path, Path, P
     l3_path = features_path / 'l3_features'
     yamnet_path = features_path / 'yamnet_features'
     mel_spec_root_path = features_path / 'mel_spec'
-    mel_spec_not_by_folds = mel_spec_root_path / 'not_by_folds'
-    mel_spec_pattern_path = mel_spec_not_by_folds / 'pattern_sounds'
-    mel_spec_unwanted_path = mel_spec_not_by_folds / 'unwanted_sounds'
-    mel_spec_norm_factors = mel_spec_root_path / 'normalization_factors'
-    mel_spec_features = mel_spec_root_path / 'mel_spec_features'
 
     if not features_path.is_dir():
         features_path.mkdir()
@@ -43,14 +38,9 @@ def generate_features_paths(root_path: Path = Path.cwd()) -> Tuple[Path, Path, P
 
     if not mel_spec_root_path.is_dir():
         mel_spec_root_path.mkdir()
-        mel_spec_not_by_folds.mkdir()
-        mel_spec_pattern_path.mkdir()
-        mel_spec_unwanted_path.mkdir()
-        mel_spec_norm_factors.mkdir()
-        mel_spec_features.mkdir()
-        generate_full_trios_path(mel_spec_features)
+        generate_full_trios_path(mel_spec_root_path)
 
-    return features_path, l3_path, yamnet_path, (mel_spec_pattern_path, mel_spec_unwanted_path, mel_spec_norm_factors, mel_spec_features)
+    return features_path, l3_path, yamnet_path, mel_spec_root_path
 
 
 def generate_evaluation_paths(root_path: Path = Path.cwd()) -> Tuple[Path, Path, Path]:
