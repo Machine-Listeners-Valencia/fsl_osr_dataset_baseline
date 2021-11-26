@@ -1,17 +1,17 @@
 stages:
   splits: False
-  embeddings: True
-  training: False
+  embeddings: False
+  training: True
 
 training_modes:
   - full
-  - trios
+#  - trios
 
 feature_extractors:
-  - yamnet
-  - l3
+#  - yamnet
+#  - l3
   - melspectrogram
 
 train_parameters:
-  epochs: 200
+  epochs: 1
   batch_size: 16
