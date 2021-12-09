@@ -255,9 +255,16 @@ class OpenSetDCAE:
         outlier_labels_eval = [None] * self.number_of_classes
         for i in range(self.number_of_classes):
             
-            # FALTA LIDIAR COMO TRATAR OPENNESS 0 Y OPENNESS 100
+            # FALTA LIDIAR COMO TRATAR OPENNESS 0 Y OPENNESS 100 Y DECIDIR SI UTILIZAR VAL O TRAIN EN LA LOGISTIC REGRESSION
             X_class_train, y_class_train, X_class_val, y_class_val = self.select_class(X_train, y_train, X_val, y_val, i)
-            X_unwanted_train, y_unwanted_train, X_unwanted_val, y_unwanted_val = self.select_unwatend(X_train, y_train, X_val, y_val)
+            
+            
+            # TODO
+            if openness == 100:
+                _, _, X_unwanted_val, y_unwanted_val = self.select_unwatend(X_train, y_train, X_val, y_val)
+            else:
+                X_unwanted_train, y_unwanted_train, X_unwanted_val, y_unwanted_val = self.select_unwatend(X_train, y_train, X_val, y_val)
+                
             self.dcae_model = self.create_dcae_model()
             self.dcae_model.fit(X_class_train,
                                 X_class_train,
