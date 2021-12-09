@@ -1,3 +1,5 @@
+import os
+
 from typing import Tuple
 
 from tensorflow.keras.layers import Dense, Input
@@ -5,6 +7,8 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.callbacks import ReduceLROnPlateau, EarlyStopping
 
 import tensorflow.keras as keras
+
+from sklearn.linear_model import LogisticRegression
 
 import numpy as np
 
@@ -102,7 +106,7 @@ class OpenSetDCAE:
         self.model_cnn = self.create_cnn_model()
 
         # DCAE Model
-        self.dcae_model = self.create_dcae_model()
+        #self.dcae_model = self.create_dcae_model()
 
         # LR on plateau
         self.lr_plateau = self.lr_onplateau()
@@ -196,7 +200,7 @@ class OpenSetDCAE:
         x = keras.layers.BatchNormalization()(x)
         x = keras.layers.Activation(activation='relu')(x)
         x = keras.layers.UpSampling2D(size=(2, 2))(x)
-        x = keras.layers.ZeroPadding2D(padding=((0, 0), (0, 1)))(x)
+        #x = keras.layers.ZeroPadding2D(padding=((0, 0), (0, 1)))(x)
 
         x = keras.layers.Conv2D(64, kernel_size=3, padding='same')(x)
         x = keras.layers.BatchNormalization()(x)
@@ -245,8 +249,61 @@ class OpenSetDCAE:
         #                batch_size=batch_size,
         #                callbacks=[self.lr_plateau, self.early_stopping],
         #                verbose=0)
+        X_train =  np.expand_dims(X_train, axis=-1)
+        X_val =  np.expand_dims(X_val, axis=-1)
+        outlier_scores_eval = [None] * self.number_of_classes
+        outlier_labels_eval = [None] * self.number_of_classes
         for i in range(self.number_of_classes):
-            X_class_train, y_class_train, X_class_train, y_class_train = self.select_class(X_train, y_train, X_val, y_val)
+            
+            # FALTA LIDIAR COMO TRATAR OPENNESS 0 Y OPENNESS 100
+            X_class_train, y_class_train, X_class_val, y_class_val = self.select_class(X_train, y_train, X_val, y_val, i)
+            X_unwanted_train, y_unwanted_train, X_unwanted_val, y_unwanted_val = self.select_unwatend(X_train, y_train, X_val, y_val)
+            self.dcae_model = self.create_dcae_model()
+            self.dcae_model.fit(X_class_train,
+                                X_class_train,
+                                validation_data=(X_class_val, X_class_val),
+                                epochs=epochs,
+                                batch_size=batch_size,
+                                callbacks=[self.lr_plateau, self.early_stopping],
+                                verbose=0)
+            self.dcae_model.save(os.path.join(os.getcwd(),f'dcae_{i}.h5'))
+            
+            outlier_scores_eval_kk = np.zeros((X_class_val.shape[0]))
+            outlier_scores_eval_uu = np.zeros((X_unwanted_val.shape[0]))
+            
+            for ii in range(0, X_class_val.shape[0]):
+                outlier_scores_eval_kk[ii] = self.dcae_model.evaluate(np.expand_dims(X_class_val[ii], axis=0), 
+                                                                      np.expand_dims(X_class_val[ii], axis=0))[0]
+                
+            for ii in range(0, X_unwanted_val.shape[0]):
+                outlier_scores_eval_uu[ii] = self.dcae_model.evaluate(np.expand_dims(X_unwanted_val[ii], axis=0), 
+                                                                      np.expand_dims(X_unwanted_val[ii], axis=0))[0]
+            
+            #outlier_scores_eval[i] = self.dcae_model.evaluate(X_class_val, X_class_val)
+            outlier_scores_eval[i] = np.concatenate((outlier_scores_eval_kk, outlier_scores_eval_uu))
+            outlier_labels_eval[i] = np.concatenate((np.ones(X_class_val.shape[0]), np.zeros(X_unwanted_val.shape[0])))
+            
+        clf = LogisticRegression(class_weight='balanced')
+        feat = np.concatenate(outlier_scores_eval, axis=0)
+        feat = np.reshape(feat, (feat.shape[0], 1))
+        labels = np.concatenate(outlier_labels_eval, axis=0)
+
+        clf.fit(feat, labels)
+        
+        # TRAIN CLOSE-SET
+        
+        X_known_train, y_known_train, X_known_val, y_known_val = self.select_known(X_train, y_train, X_val, y_val)
+        
+        self.model_cnn.fit(X_known_train,
+                        y_known_train,
+                        validation_data=(X_known_val, y_known_val),
+                        epochs=epochs,
+                        batch_size=batch_size,
+                        callbacks=[self.lr_plateau, self.early_stopping],
+                        verbose=0)
+        
+        # HACER LA LOGICA?
+            
 
     def openset_predict(self, X_test: np.ndarray) -> np.ndarray:
         predictions = self.model.predict(X_test)
@@ -273,5 +330,35 @@ class OpenSetDCAE:
                      y_train: np.ndarray,
                      X_val: np.ndarray,
                      y_val: np.ndarray,
+                     index_class: int,
                      ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        a=0
+        y_train_index = np.where(y_train==1)[1]
+        y_val_index = np.where(y_val==1)[1]
+        idx_train = np.where(y_train_index == index_class)[0]
+        idx_val = np.where(y_val_index == index_class)[0]
+
+        return X_train[idx_train, :], y_train[idx_train, :], X_val[idx_val, :], y_val[idx_val, :]
+    
+    def select_unwatend(self,
+                        X_train: np.ndarray,
+                        y_train: np.ndarray,
+                        X_val: np.ndarray,
+                        y_val: np.ndarray,
+                        ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        
+        idx_train = np.where(~y_train.any(axis=1))[0]
+        idx_val = np.where(~y_val.any(axis=1))[0]
+        
+        return X_train[idx_train, :], y_train[idx_train, :], X_val[idx_val, :], y_val[idx_val, :]
+    
+    def select_known(self,
+                        X_train: np.ndarray,
+                        y_train: np.ndarray,
+                        X_val: np.ndarray,
+                        y_val: np.ndarray,
+                        ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        
+        idx_train = np.where(y_train.any(axis=1))[0]
+        idx_val = np.where(y_val.any(axis=1))[0]
+        
+        return X_train[idx_train, :], y_train[idx_train, :], X_val[idx_val, :], y_val[idx_val, :]
