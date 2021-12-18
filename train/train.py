@@ -55,6 +55,7 @@ def execute_trainings(features_root_path: Path,
                                 if features_folder.is_dir()]
     for features_folder in features_folders_to_iter:
         print(f"{features_folder.stem}")
+        openness = int(features_folder.stem[-1])
         # Training files
         files = [str(item) for item in features_folder.iterdir() if item.is_file()]
         files = utils.natural_sort(files)
@@ -101,7 +102,7 @@ def execute_trainings(features_root_path: Path,
                                 train_parameters['epochs'],
                                 train_parameters['batch_size'])
                 else:
-                    model = baseline_model.OpenSetDCAE(number_of_classes)
+                    model = baseline_model.OpenSetDCAE(number_of_classes, openness)
                     model.train(X_train,
                                 y_train,
                                 X_val,
