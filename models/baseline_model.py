@@ -12,6 +12,7 @@ from sklearn.linear_model import LogisticRegression
 
 import numpy as np
 
+
 class BaselineModel:
 
     def __init__(self, embedding_size: int, number_of_classes: int) -> None:
@@ -97,16 +98,26 @@ class BaselineModel:
 
 class OpenSetDCAE:
 
-    def __init__(self, number_of_classes: int) -> None:
+    def __init__(self, number_of_classes: int, openness: int) -> None:
         self.nceps = 64
         self.feat_length = 200
         self.number_of_classes = number_of_classes
+        self.openness = openness
+
+        # Outlier scores
+        self.outlier_scores_train = [None] * self.number_of_classes
+        self.outlier_scores_eval = [None] * self.number_of_classes
+        self.outlier_labels_train = [None] * self.number_of_classes
+        self.outlier_labels_eval = [None] * self.number_of_classes
+
+        # Logistic regression model
+        self.logistic_regression_model = LogisticRegression(class_weight='balanced')
 
         # CNN Model
         self.model_cnn = self.create_cnn_model()
 
         # DCAE Model
-        #self.dcae_model = self.create_dcae_model()
+        # self.dcae_model = self.create_dcae_model()
 
         # LR on plateau
         self.lr_plateau = self.lr_onplateau()
@@ -200,7 +211,7 @@ class OpenSetDCAE:
         x = keras.layers.BatchNormalization()(x)
         x = keras.layers.Activation(activation='relu')(x)
         x = keras.layers.UpSampling2D(size=(2, 2))(x)
-        #x = keras.layers.ZeroPadding2D(padding=((0, 0), (0, 1)))(x)
+        # x = keras.layers.ZeroPadding2D(padding=((0, 0), (0, 1)))(x)
 
         x = keras.layers.Conv2D(64, kernel_size=3, padding='same')(x)
         x = keras.layers.BatchNormalization()(x)
@@ -249,68 +260,83 @@ class OpenSetDCAE:
         #                batch_size=batch_size,
         #                callbacks=[self.lr_plateau, self.early_stopping],
         #                verbose=0)
-        X_train =  np.expand_dims(X_train, axis=-1)
-        X_val =  np.expand_dims(X_val, axis=-1)
-        outlier_scores_eval = [None] * self.number_of_classes
-        outlier_labels_eval = [None] * self.number_of_classes
+        X_train = np.expand_dims(X_train, axis=-1)
+        X_val = np.expand_dims(X_val, axis=-1)
         for i in range(self.number_of_classes):
-            
+
             # FALTA LIDIAR COMO TRATAR OPENNESS 0 Y OPENNESS 100 Y DECIDIR SI UTILIZAR VAL O TRAIN EN LA LOGISTIC REGRESSION
-            X_class_train, y_class_train, X_class_val, y_class_val = self.select_class(X_train, y_train, X_val, y_val, i)
-            
-            
+            X_class_train, y_class_train, X_class_val, y_class_val = self.select_class(X_train, y_train, X_val, y_val,
+                                                                                       i)
+
             # TODO
-            if openness == 100:
+            if self.openness == 100:
                 _, _, X_unwanted_val, y_unwanted_val = self.select_unwatend(X_train, y_train, X_val, y_val)
             else:
-                X_unwanted_train, y_unwanted_train, X_unwanted_val, y_unwanted_val = self.select_unwatend(X_train, y_train, X_val, y_val)
-                
-            self.dcae_model = self.create_dcae_model()
-            self.dcae_model.fit(X_class_train,
-                                X_class_train,
-                                validation_data=(X_class_val, X_class_val),
-                                epochs=epochs,
-                                batch_size=batch_size,
-                                callbacks=[self.lr_plateau, self.early_stopping],
-                                verbose=0)
-            self.dcae_model.save(os.path.join(os.getcwd(),f'dcae_{i}.h5'))
-            
+                X_unwanted_train, y_unwanted_train, X_unwanted_val, y_unwanted_val = self.select_unwatend(X_train,
+                                                                                                          y_train,
+                                                                                                          X_val, y_val)
+
+            dcae_model = self.create_dcae_model()
+            dcae_model.fit(X_class_train,
+                           X_class_train,
+                           validation_data=(X_class_val, X_class_val),
+                           epochs=epochs,
+                           batch_size=batch_size,
+                           callbacks=[self.lr_plateau, self.early_stopping],
+                           verbose=0)
+            dcae_model.save(os.path.join(os.getcwd(), f'dcae_{i}.h5'))
+
             outlier_scores_eval_kk = np.zeros((X_class_val.shape[0]))
             outlier_scores_eval_uu = np.zeros((X_unwanted_val.shape[0]))
-            
-            for ii in range(0, X_class_val.shape[0]):
-                outlier_scores_eval_kk[ii] = self.dcae_model.evaluate(np.expand_dims(X_class_val[ii], axis=0), 
-                                                                      np.expand_dims(X_class_val[ii], axis=0))[0]
-                
-            for ii in range(0, X_unwanted_val.shape[0]):
-                outlier_scores_eval_uu[ii] = self.dcae_model.evaluate(np.expand_dims(X_unwanted_val[ii], axis=0), 
-                                                                      np.expand_dims(X_unwanted_val[ii], axis=0))[0]
-            
-            #outlier_scores_eval[i] = self.dcae_model.evaluate(X_class_val, X_class_val)
-            outlier_scores_eval[i] = np.concatenate((outlier_scores_eval_kk, outlier_scores_eval_uu))
-            outlier_labels_eval[i] = np.concatenate((np.ones(X_class_val.shape[0]), np.zeros(X_unwanted_val.shape[0])))
-            
-        clf = LogisticRegression(class_weight='balanced')
-        feat = np.concatenate(outlier_scores_eval, axis=0)
-        feat = np.reshape(feat, (feat.shape[0], 1))
-        labels = np.concatenate(outlier_labels_eval, axis=0)
+            outlier_scores_train_kk = np.zeros((X_class_train.shape[0]))
+            if self.openness != 100:
+                outlier_scores_train_uu = np.zeros((X_unwanted_train.shape[0]))
 
-        clf.fit(feat, labels)
-        
-        # TRAIN CLOSE-SET
-        
+            # Cuando openness 100 sí que existen muestras unwanted
+            for ii in range(0, X_class_val.shape[0]):
+                outlier_scores_eval_kk[ii] = dcae_model.evaluate(np.expand_dims(X_class_val[ii], axis=0),
+                                                                 np.expand_dims(X_class_val[ii], axis=0))[0]
+
+            for ii in range(0, X_unwanted_val.shape[0]):
+                outlier_scores_eval_uu[ii] = dcae_model.evaluate(np.expand_dims(X_unwanted_val[ii], axis=0),
+                                                                 np.expand_dims(X_unwanted_val[ii], axis=0))[0]
+            # Scores for training logistic regression
+            for ii in range(0, X_class_val.shape[0]):
+                outlier_scores_train_kk[ii] = dcae_model.evaluate(np.expand_dims(X_class_val[ii], axis=0),
+                                                                 np.expand_dims(X_class_val[ii], axis=0))[0]
+            if self.openness != 100:
+                for ii in range(0, X_unwanted_val.shape[0]):
+                    outlier_scores_train_uu[ii] = dcae_model.evaluate(np.expand_dims(X_unwanted_val[ii], axis=0),
+                                                                     np.expand_dims(X_unwanted_val[ii], axis=0))[0]
+
+            # outlier_scores_eval[i] = self.dcae_model.evaluate(X_class_val, X_class_val)
+            self.outlier_scores_eval[i] = np.concatenate((outlier_scores_eval_kk, outlier_scores_eval_uu))
+            self.outlier_labels_eval[i] = np.concatenate(
+                (np.ones(X_class_val.shape[0]), np.zeros(X_unwanted_val.shape[0])))
+            if self.openness != 100:
+                self.outlier_scores_train[i] = np.concatenate((outlier_scores_train_kk, outlier_scores_train_uu))
+                self.outlier_labels_train[i] = np.concatenate(
+                    (np.ones(X_class_train.shape[0]), np.zeros(X_unwanted_train.shape[0])))
+            else:
+                self.outlier_scores_train[i] = outlier_scores_train_kk
+                self.outlier_labels_train[i] = np.ones(X_class_train.shape[0])
+
+        # Train logistic regression
+        feat = np.concatenate(self.outlier_scores_train, axis=0)
+        feat = np.reshape(feat, (feat.shape[0], 1))
+        labels = np.concatenate(self.outlier_labels_train, axis=0)
+        self.logistic_regression_model.fit(feat, labels)
+
+        # Train close-set
         X_known_train, y_known_train, X_known_val, y_known_val = self.select_known(X_train, y_train, X_val, y_val)
-        
+
         self.model_cnn.fit(X_known_train,
-                        y_known_train,
-                        validation_data=(X_known_val, y_known_val),
-                        epochs=epochs,
-                        batch_size=batch_size,
-                        callbacks=[self.lr_plateau, self.early_stopping],
-                        verbose=0)
-        
-        # HACER LA LOGICA?
-            
+                           y_known_train,
+                           validation_data=(X_known_val, y_known_val),
+                           epochs=epochs,
+                           batch_size=batch_size,
+                           callbacks=[self.lr_plateau, self.early_stopping],
+                           verbose=0)
 
     def openset_predict(self, X_test: np.ndarray) -> np.ndarray:
         predictions = self.model.predict(X_test)
@@ -332,40 +358,40 @@ class OpenSetDCAE:
 
         return predict_openset
 
-    def select_class(self,
-                     X_train: np.ndarray,
+    @staticmethod
+    def select_class(X_train: np.ndarray,
                      y_train: np.ndarray,
                      X_val: np.ndarray,
                      y_val: np.ndarray,
                      index_class: int,
                      ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        y_train_index = np.where(y_train==1)[1]
-        y_val_index = np.where(y_val==1)[1]
+        y_train_index = np.where(y_train == 1)[1]
+        y_val_index = np.where(y_val == 1)[1]
         idx_train = np.where(y_train_index == index_class)[0]
         idx_val = np.where(y_val_index == index_class)[0]
 
         return X_train[idx_train, :], y_train[idx_train, :], X_val[idx_val, :], y_val[idx_val, :]
-    
-    def select_unwatend(self,
-                        X_train: np.ndarray,
+
+    @staticmethod
+    def select_unwatend(X_train: np.ndarray,
                         y_train: np.ndarray,
                         X_val: np.ndarray,
                         y_val: np.ndarray,
                         ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        
+
         idx_train = np.where(~y_train.any(axis=1))[0]
         idx_val = np.where(~y_val.any(axis=1))[0]
-        
+
         return X_train[idx_train, :], y_train[idx_train, :], X_val[idx_val, :], y_val[idx_val, :]
-    
-    def select_known(self,
-                        X_train: np.ndarray,
-                        y_train: np.ndarray,
-                        X_val: np.ndarray,
-                        y_val: np.ndarray,
-                        ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        
+
+    @staticmethod
+    def select_known(X_train: np.ndarray,
+                     y_train: np.ndarray,
+                     X_val: np.ndarray,
+                     y_val: np.ndarray,
+                     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+
         idx_train = np.where(y_train.any(axis=1))[0]
         idx_val = np.where(y_val.any(axis=1))[0]
-        
+
         return X_train[idx_train, :], y_train[idx_train, :], X_val[idx_val, :], y_val[idx_val, :]
