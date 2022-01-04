@@ -279,7 +279,7 @@ class OpenSetDCAE:
             dcae_model = self.create_dcae_model()
             dcae_model.fit(X_class_train,
                            X_class_train,
-                           validation_data=(X_class_val, X_class_val),
+                           validation_data=(X_class_train, X_class_train),
                            epochs=epochs,
                            batch_size=batch_size,
                            callbacks=[self.lr_plateau, self.early_stopping],
@@ -289,10 +289,11 @@ class OpenSetDCAE:
             outlier_scores_eval_kk = np.zeros((X_class_val.shape[0]))
             outlier_scores_eval_uu = np.zeros((X_unwanted_val.shape[0]))
             outlier_scores_train_kk = np.zeros((X_class_train.shape[0]))
+            # esto no sería si openness fuera 0 o 50?
             if self.openness != 100:
                 outlier_scores_train_uu = np.zeros((X_unwanted_train.shape[0]))
 
-            # Cuando openness 100 sí que existen muestras unwanted
+            # Cuando openness 100 sí que existen muestras unwanted -> esto tiene sentido?
             for ii in range(0, X_class_val.shape[0]):
                 outlier_scores_eval_kk[ii] = dcae_model.evaluate(np.expand_dims(X_class_val[ii], axis=0),
                                                                  np.expand_dims(X_class_val[ii], axis=0))[0]
